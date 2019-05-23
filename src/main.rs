@@ -244,7 +244,7 @@ fn test_uniform<N: Distribution<i16>, S: Distribution<usize>>(
 }
 
 fn main() {
-    println!("LC-3 project #2 tester v{}", env!("CARGO_PKG_VERSION"));
+    println!("LC-3 project #2A tester v{}", env!("CARGO_PKG_VERSION"));
     println!("이 프로그램은 GPL-2 라이선스 하에서 배포되며,");
     println!(
         "내장된 LC-3 운영체제 OS_MINI에 대한 원 저작권은 Steven S. Lumetta에게 있습니다.\n"
