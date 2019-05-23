@@ -1,5 +1,5 @@
 # LC-3 Project #2A tester
-주어진 오브젝트 파일이 LC-3 프로젝트 2A의 스펙(http://archi.snu.ac.kr/courses/under/19_spring_computer_concept/slides/proj2.pdf)을 만족하는지 [퍼즈 테스팅](https://ko.wikipedia.org/wiki/%ED%8D%BC%EC%A7%95)을 통해 확인합니다.
+주어진 오브젝트 파일이 LC-3 프로젝트 2A의 스펙(http://archi.snu.ac.kr/courses/under/19_spring_computer_concept/slides/proj2.pdf) 을 만족하는지 [퍼즈 테스팅](https://ko.wikipedia.org/wiki/%ED%8D%BC%EC%A7%95)을 통해 확인합니다.
 
 ## 설치
 - Windows 64bit: [Releases](https://github.com/cr0sh/lc3p2atest/releases)에서 실행 파일을 받을 수 있습니다.
@@ -16,10 +16,15 @@
 git clone https://github.com/cr0sh/lc3p2atest
 cd lc3p2atest
 cargo update
-cargo run --release -- some/folder/proj2a.obj
+cargo build --release
 ```
+그 후 `lc3p2atest/target/release/lc3p2atest(.exe)`를 원하는 위치에 복사하면 됩니다.
 
 처음으로 실행할 때는 패키지를 받고, 새로 컴파일하기 때문에 시간이 걸릴 수 있습니다.
+
+### 사용법
+명령 프롬포트(`cmd`/`powershell`)나 터미널을 열고, `lc3p2atest`가 있는 폴더로 접근한 후
+`lc3p2atest some/folder/proj2a.obj`를 입력합니다.
 
 ## 기능
  - LC-3 시뮬레이터 환경([lc3-rs](https://github.com/cr0sh/lc3-rs)) 내장(`lc3sim` 설치 불필요)
