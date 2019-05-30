@@ -8,6 +8,7 @@ pub struct HeapEnv<W> {
     pub wr: W,
 }
 
+#[allow(clippy::unused_io_amount)]
 impl<W> HeapEnv<W>
 where
     W: Write,
