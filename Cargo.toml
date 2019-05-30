@@ -13,3 +13,4 @@ lc3-rs = "0.3"
 rand = "0.6"
 rayon = { version = "1.0", optional = true}
 floating-duration = "0.1"
+conv = "0.3"

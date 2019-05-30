@@ -1,3 +1,4 @@
+use conv::*;
 use floating_duration::TimeFormat;
 use heap::*;
 use lc3::vm::{DSR, MCR, VM};
@@ -35,12 +36,13 @@ struct SimpleTestCase {
 unsafe impl Send for SimpleTestCase {}
 
 impl SimpleTestCase {
-    fn test(self, mut vm: VM, limit: Option<usize>) -> Result<(), SimpleTestError> {
+    fn test(self, mut vm: VM, limit: Option<usize>) -> Result<usize, SimpleTestError> {
         let mut out = Vec::<u8>::new();
+        let instructions;
         if let Some(limit) = limit {
-            vm.run_n_with_io(limit, &mut self.input.as_bytes(), &mut out);
+            instructions = vm.run_n_with_io(limit, &mut self.input.as_bytes(), &mut out);
         } else {
-            vm.run_with_io(&mut self.input.as_bytes(), &mut out);
+            instructions = vm.run_with_io(&mut self.input.as_bytes(), &mut out);
         }
         let output = String::from_utf8_lossy(&out);
 
@@ -55,7 +57,7 @@ impl SimpleTestCase {
                 mismatch,
             });
         }
-        Ok(())
+        Ok(instructions)
     }
 }
 
@@ -212,8 +214,8 @@ fn test_uniform<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bo
     op_distribution: O,
     n: usize,
     limit: Option<usize>,
-) -> Result<(), SimpleTestError> {
-    (FuzzyGenerator {
+) -> Result<f64, SimpleTestError> {
+    let cases = (FuzzyGenerator {
         num_range,
         size_range,
         element_count: 0,
@@ -221,11 +223,19 @@ fn test_uniform<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bo
         rng: thread_rng(),
     })
     .take(n)
-    .collect::<Vec<_>>()
-    .into_par_iter()
-    .map(compile_ops)
-    .map(|t| t.test(vm.clone(), limit))
-    .collect::<Result<(), _>>()
+    .collect::<Vec<_>>();
+    let cases_count = cases.len();
+    Ok(cases
+        .into_par_iter()
+        .map(compile_ops)
+        .map(|t| {
+            t.test(vm.clone(), limit)
+                .map(|x| f64::value_from(x).unwrap())
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .sum::<f64>()
+        / f64::value_from(cases_count).unwrap())
 }
 
 #[cfg(not(feature = "parallel-test"))]
@@ -304,9 +314,7 @@ fn main() {
 
             let now = Instant::now();
 
-            #[cfg(feature = "parallel-test")]
-            {
-            if let Err(err) = test_uniform(
+            match test_uniform(
                 $v,
                 Uniform::new_inclusive($nr0, $nr1),
                 Uniform::new_inclusive($sr0, $sr1),
@@ -314,17 +322,21 @@ fn main() {
                 $n,
                 $limit,
             ) {
+                Ok(x) => {
+                    let dur = now.elapsed();
+                    println!(
+                        "\t테스트 성공: 총 {}, 각 테스트당 평균 {}의 시간, {:.2} instruction이 들었습니다.",
+                        TimeFormat(dur),
+                        TimeFormat(dur / $n),
+                        x
+                    );
+                },
+                Err(err) =>{
                 err_print!(err);
                 return;
+                },
             };
-            }
 
-            let dur = now.elapsed();
-            println!(
-                "\t테스트 성공: 총 {}, 각 테스트당 평균 {}의 시간이 들었습니다.",
-                TimeFormat(dur),
-                TimeFormat(dur / $n)
-            )
         };
     }
 
