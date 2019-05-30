@@ -239,25 +239,35 @@ fn test_uniform<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bo
 }
 
 #[cfg(not(feature = "parallel-test"))]
-fn test_uniform<N: Distribution<i16>, S: Distribution<usize>>(
+fn test_uniform<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bool>>(
     vm: &VM,
     num_range: N,
     size_range: S,
+    op_distribution: O,
     n: usize,
     limit: Option<usize>,
-) -> Result<(), SimpleTestError> {
-    (FuzzyGenerator {
+) -> Result<f64, SimpleTestError> {
+    let cases = (FuzzyGenerator {
         num_range,
         size_range,
         element_count: 0,
+        op_distribution,
         rng: thread_rng(),
     })
     .take(n)
-    .collect::<Vec<_>>()
-    .into_iter()
-    .map(compile_ops)
-    .map(|t| t.test(vm.clone(), limit))
-    .collect::<Result<(), _>>()
+    .collect::<Vec<_>>();
+    let cases_count = cases.len();
+    Ok(cases
+        .into_iter()
+        .map(compile_ops)
+        .map(|t| {
+            t.test(vm.clone(), limit)
+                .map(|x| f64::value_from(x).unwrap())
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .sum::<f64>()
+        / f64::value_from(cases_count).unwrap())
 }
 
 fn main() {
