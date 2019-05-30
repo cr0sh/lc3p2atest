@@ -1,7 +1,7 @@
 use floating_duration::TimeFormat;
 use heap::*;
 use lc3::vm::{DSR, MCR, VM};
-use rand::distributions::Uniform;
+use rand::distributions::{Bernoulli, Standard, Uniform};
 use rand::prelude::*;
 use std::env::args;
 use std::fs;
@@ -136,15 +136,19 @@ impl SimpleTestError {
     }
 }
 
-struct FuzzyGenerator<N: Distribution<i16>, S: Distribution<usize>> {
+struct FuzzyGenerator<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bool>> {
     num_range: N,
     size_range: S,
     element_count: usize,
 
+    op_distribution: O, // If sampling is true, pop operation will be executed
+
     rng: ThreadRng,
 }
 
-impl<N: Distribution<i16>, S: Distribution<usize>> Iterator for FuzzyGenerator<N, S> {
+impl<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bool>> Iterator
+    for FuzzyGenerator<N, S, O>
+{
     type Item = Vec<Operation>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -153,7 +157,7 @@ impl<N: Distribution<i16>, S: Distribution<usize>> Iterator for FuzzyGenerator<N
         let mut v = Vec::with_capacity(size * 2);
         v.extend(
             iter::repeat_with(|| {
-                if self.element_count > 0 && self.rng.gen() {
+                if self.element_count > 0 && self.rng.sample(&self.op_distribution) {
                     if self.element_count > 0 {
                         self.element_count -= 1;
                     }
@@ -184,6 +188,7 @@ fn compile_ops(ops: Vec<Operation>) -> SimpleTestCase {
         .collect::<Result<(), _>>()
         .expect("Unexpected error while running heap environment");
 
+    #[allow(clippy::unused_io_amount)]
     wr.write(b">q\n").unwrap();
 
     SimpleTestCase {
@@ -200,10 +205,11 @@ fn compile_ops(ops: Vec<Operation>) -> SimpleTestCase {
 }
 
 #[cfg(feature = "parallel-test")]
-fn test_uniform<N: Distribution<i16>, S: Distribution<usize>>(
+fn test_uniform<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bool>>(
     vm: &VM,
     num_range: N,
     size_range: S,
+    op_distribution: O,
     n: usize,
     limit: Option<usize>,
 ) -> Result<(), SimpleTestError> {
@@ -211,6 +217,7 @@ fn test_uniform<N: Distribution<i16>, S: Distribution<usize>>(
         num_range,
         size_range,
         element_count: 0,
+        op_distribution,
         rng: thread_rng(),
     })
     .take(n)
@@ -279,15 +286,15 @@ fn main() {
     }
 
     macro_rules! test_case {
-        ($name: expr, $v:expr, [$nr0:expr, $nr1:expr], [$sr0:expr, $sr1:expr], $n:expr) => {
-            test_case!(@explicit $name, $v, [$nr0, $nr1], [$sr0, $sr1], $n, Some(INSTRUCTION_LIMIT))
+        ($name: expr, $v:expr, [$nr0:expr, $nr1:expr], [$sr0:expr, $sr1:expr], $opdist:expr, $n:expr) => {
+            test_case!(@explicit $name, $v, [$nr0, $nr1], [$sr0, $sr1], $opdist, $n, Some(INSTRUCTION_LIMIT))
         };
 
-        ($name: expr, $v:expr, [$nr0:expr, $nr1:expr], [$sr0:expr, $sr1:expr], $n:expr, @nolimit) => {
-            test_case!(@explicit $name, $v, [$nr0, $nr1], [$sr0, $sr1], $n, None)
+        ($name: expr, $v:expr, [$nr0:expr, $nr1:expr], [$sr0:expr, $sr1:expr], $opdist:expr, $n:expr, @nolimit) => {
+            test_case!(@explicit $name, $v, [$nr0, $nr1], [$sr0, $sr1], $opdist, $n, None)
         };
 
-        (@explicit $name: expr, $v:expr, [$nr0:expr, $nr1:expr], [$sr0:expr, $sr1:expr], $n:expr, $limit:expr) => {
+        (@explicit $name: expr, $v:expr, [$nr0:expr, $nr1:expr], [$sr0:expr, $sr1:expr], $opdist:expr, $n:expr, $limit:expr) => {
             println!(
                 "{}개짜리 테스트 세트 [{}]에 대해 테스트를 시작합니다",
                 $n, $name
@@ -303,6 +310,7 @@ fn main() {
                 $v,
                 Uniform::new_inclusive($nr0, $nr1),
                 Uniform::new_inclusive($sr0, $sr1),
+                $opdist,
                 $n,
                 $limit,
             ) {
@@ -321,15 +329,31 @@ fn main() {
     }
 
     fn test_group(vm: &mut VM) {
-        test_case!("simple", &vm, [0, 3], [3, 5], 100);
-        test_case!("duplicates", &vm, [0, 5], [200, 200], 5000);
-        test_case!("all_same", &vm, [1, 1], [30, 30], 30);
-        test_case!("zero_one", &vm, [0, 1], [50, 50], 200);
-        test_case!("zero_one_two", &vm, [0, 2], [80, 80], 500);
-        test_case!("small", &vm, [0, 50], [10, 20], 10_0000);
-        test_case!("medium", &vm, [0, 200], [50, 60], 1_0000);
-        test_case!("large", &vm, [0, 7000], [300, 350], 2500, @nolimit);
-        test_case!("xlarge", &vm, [0, i16::max_value()], [7500, 8000], 200, @nolimit);
+        test_case!("simple", &vm, [0, 3], [3, 5], Standard, 100);
+        test_case!("duplicates", &vm, [0, 5], [200, 200], Standard, 5000);
+        test_case!("all_same", &vm, [1, 1], [30, 30], Standard, 30);
+        test_case!("zero_one", &vm, [0, 1], [50, 50], Standard, 200);
+        test_case!("zero_one_two", &vm, [0, 2], [80, 80], Standard, 500);
+        test_case!(
+            "1/3_pop_2/3_insert",
+            &vm,
+            [0, 20],
+            [200, 250],
+            Bernoulli::from_ratio(1, 3),
+            500
+        );
+        test_case!(
+            "2/3_pop_1/3_insert",
+            &vm,
+            [0, 20],
+            [200, 250],
+            Bernoulli::from_ratio(2, 3),
+            500
+        );
+        test_case!("small", &vm, [0, 50], [10, 20], Standard, 10_0000);
+        test_case!("medium", &vm, [0, 200], [50, 60], Standard, 1_0000);
+        test_case!("large", &vm, [0, 7000], [300, 350], Standard, 2500, @nolimit);
+        test_case!("xlarge", &vm, [0, i16::max_value()], [7500, 8000], Standard, 200, @nolimit);
     };
 
     let start = Instant::now();
