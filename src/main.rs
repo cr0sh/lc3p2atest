@@ -232,9 +232,7 @@ fn test_uniform<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bo
             t.test(vm.clone(), limit)
                 .map(|x| f64::value_from(x).unwrap())
         })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .sum::<f64>()
+        .try_reduce(|| 0f64, |acc, x| Ok(acc + x))?
         / f64::value_from(cases_count).unwrap())
 }
 
@@ -264,9 +262,7 @@ fn test_uniform<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bo
             t.test(vm.clone(), limit)
                 .map(|x| f64::value_from(x).unwrap())
         })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .sum::<f64>()
+        .try_fold(0f64, |acc, x| x.map(|y| y + acc))?
         / f64::value_from(cases_count).unwrap())
 }
 
@@ -342,8 +338,8 @@ fn main() {
                     );
                 },
                 Err(err) =>{
-                err_print!(err);
-                return;
+                    err_print!(err);
+                    return;
                 },
             };
 
