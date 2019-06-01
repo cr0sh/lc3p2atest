@@ -178,6 +178,7 @@ impl<N: Distribution<i16>, S: Distribution<usize>, O: Distribution<bool>> Iterat
     }
 }
 
+#[allow(clippy::unused_io_amount)]
 fn compile_ops(ops: Vec<Operation>) -> SimpleTestCase {
     let mut wr = Vec::new();
     let mut he = HeapEnv::new(&mut wr);
@@ -190,7 +191,6 @@ fn compile_ops(ops: Vec<Operation>) -> SimpleTestCase {
         .collect::<Result<(), _>>()
         .expect("Unexpected error while running heap environment");
 
-    #[allow(clippy::unused_io_amount)]
     wr.write(b">q\n").unwrap();
 
     SimpleTestCase {
