@@ -40,9 +40,9 @@ impl SimpleTestCase {
         let mut out = Vec::<u8>::new();
         let instructions;
         if let Some(limit) = limit {
-            instructions = vm.run_n_with_io(limit, &mut self.input.as_bytes(), &mut out);
+            instructions = vm.run_n(&mut self.input.as_bytes(), &mut out, limit);
         } else {
-            instructions = vm.run_with_io(&mut self.input.as_bytes(), &mut out);
+            instructions = vm.run(&mut self.input.as_bytes(), &mut out);
         }
         let output = String::from_utf8_lossy(&out);
 

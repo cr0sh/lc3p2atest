@@ -1,6 +1,6 @@
 [package]
 name = "lc3p2atest"
-version = "0.2.0"
+version = "0.2.2"
 authors = ["cr0sh <ska827@snu.ac.kr>"]
 edition = "2018"
 
@@ -9,7 +9,7 @@ default = ["parallel-test"]
 parallel-test = ["rayon"]
 
 [dependencies]
-lc3-rs = "0.3"
+lc3-rs = "0.4"
 rand = "0.6"
 rayon = { version = "1.0", optional = true}
 floating-duration = "0.1"
